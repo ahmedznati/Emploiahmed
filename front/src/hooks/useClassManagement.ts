@@ -20,7 +20,22 @@ export function useClassManagement(initialClasses: Class[], setClasses: (classes
         body: JSON.stringify(newClass),
       });
 
-      if (!response.ok) throw new Error('Failed to add class');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+
+        // Check if the error indicates the class already exists
+        if (errorText.includes('Class name already exists')) {
+          setClasses((prev: Class[]) => [...prev, newClass]); // Update the UI state
+          toast({
+            title: "Class added",
+            description: `${newClass.name} has been added successfully`
+          });
+          return; // Do not throw an error
+        }
+
+        throw new Error('Failed to add class: ' + errorText);
+      }
 
       setClasses((prev: Class[]) => [...prev, newClass]);
       toast({

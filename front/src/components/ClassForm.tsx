@@ -20,21 +20,6 @@ import {
 import { useApp } from '@/context/useApp';
 import { getAllSubjects, addCustomSubject } from '@/utils/subjectsData';
 import { useTranslation } from '@/hooks/useTranslation';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
 import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5000';
@@ -61,7 +46,6 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     cls?.subjectRequirements || []
   );
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
-  const [classNameOpen, setClassNameOpen] = useState(false);
   const [mode, setMode] = useState<'add' | 'edit'>(cls ? 'edit' : 'add');
 
   console.log('ClassForm initialized with mode:', mode, 'and cls:', cls);
@@ -143,10 +127,8 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
       // Add the new subject to the dropdown options
       setAvailableSubjects((prev) => [...prev, createdSubject.name]);
       setNewSubject(''); // Clear the input field
-      alert('Subject created successfully!');
     } catch (error) {
       console.error('Error creating subject:', error);
-      alert('Failed to create subject. Please try again.');
     }
   };
 
@@ -169,10 +151,11 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
       return;
     }
 
-    // Ensure subjectRequirements is sent as a list
+    const trimmedName = name.trim();
+
     const classData = {
       id,
-      name,
+      name: trimmedName, // Keep the original casing of the class name
       subjectRequirements: requirements.map(req => ({
         subject: req.subject,
         hoursPerWeek: req.hoursPerWeek,
@@ -186,12 +169,11 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
         await axios.put(`${API_BASE_URL}/api/classes/${id}`, classData);
       }
 
-      // Notify the parent component to refresh the classes list
       if (typeof onSubmit === 'function') {
-        onSubmit(classData);
+        onSubmit(classData); // Update the parent component's state immediately
       }
 
-      // Clear the form fields after submission
+      // Clear the form fields after successful submission
       setName('');
       setRequirements([]);
       setSelectedSubject('');
@@ -201,9 +183,8 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     }
   };
 
-  const handleClassNameSelect = (value: string) => {
-    setName(value);
-    setClassNameOpen(false);
+  const handleClassNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
   };
 
   return (
@@ -216,64 +197,13 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name">{t('className')}</Label>
-            <div className="flex gap-2">
-              <Popover open={classNameOpen} onOpenChange={setClassNameOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={classNameOpen}
-                    className="w-full justify-between"
-                  >
-                    {name ? t(name) : t('selectClassName')}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput placeholder={t('selectClassName')} />
-                    <CommandEmpty>{t('noClassNameFound')}</CommandEmpty>
-                    <CommandGroup>
-                      {DEFAULT_CLASS_NAMES.map((className) => (
-                        <CommandItem
-                          key={className}
-                          value={className}
-                          onSelect={handleClassNameSelect}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              name === className ? "opacity-100" : "opacity-0"
-                            )}
-                          />
-                          {t(className)}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                    <div className="flex items-center border-t px-3 py-2">
-                      <Input
-                        value={customClassName}
-                        onChange={(e) => setCustomClassName(e.target.value)}
-                        placeholder={t('addCustomClassName')}
-                        className="flex-1 mr-2"
-                      />
-                      <Button 
-                        type="button" 
-                        size="sm"
-                        onClick={() => {
-                          if (customClassName.trim()) {
-                            handleClassNameSelect(customClassName.trim());
-                            setCustomClassName('');
-                          }
-                        }}
-                      >
-                        {t('add')}
-                      </Button>
-                    </div>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('enterClassName')}
+              className="w-full"
+            />
           </div>
           
           <div className="space-y-2">
