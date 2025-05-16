@@ -19,6 +19,7 @@ const ClassSchema = new mongoose.Schema(
       {
         subject: { type: String, required: true },
         hoursPerWeek: { type: Number, required: true },
+        teacherId: { type: String, required: false }, // Assigned teacher for this subject
       },
     ],
   }

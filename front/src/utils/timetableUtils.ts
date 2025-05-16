@@ -1,4 +1,3 @@
-
 import { ScheduleEntry, Teacher } from '@/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -40,6 +39,7 @@ interface GeneratePDFParams {
   selectedWeek: number;
   getTeacherName: (teacherId: string) => string;
   language?: 'en' | 'fr' | 'ar';
+  plannedDate: Date; // <-- Add this prop
 }
 
 export const generateTimetablePDF = ({
@@ -48,11 +48,44 @@ export const generateTimetablePDF = ({
   selectedClass,
   selectedWeek,
   getTeacherName,
-  language = 'en'
+  language = 'en',
+  plannedDate // <-- Use this prop
 }: GeneratePDFParams) => {
   const doc = new jsPDF();
   
-  doc.setFontSize(16);
+  // Current date (May 16, 2025, 07:50 PM CET)
+  const currentDate = new Date('2025-05-16T19:50:00+02:00');
+  const formattedDate = currentDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  // Header
+  doc.setFontSize(10);
+  doc.text('REPUBLIQUE TUNISIENNE', 14, 20, { align: 'left' });
+  doc.text('MINISTERE DE LA DEFENSE', 14, 25, { align: 'left' });
+  doc.text('ARMEE DE TERRE', 14, 30, { align: 'left' });
+  doc.text('ACADEMIE MILITAIRE', 14, 35, { align: 'left' });
+
+  let emploiHeader = '';
+  let emploiHeaderY = 45;
+  // Fallback to today if plannedDate is not provided or invalid
+  const plannedDateObj = plannedDate instanceof Date && !isNaN(plannedDate.getTime()) ? plannedDate : new Date();
+  const plannedDateStr = plannedDateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  switch (language) {
+    case 'fr':
+      emploiHeader = `EMPLOI DU TEMPS - F-JEID (Prévu le ${plannedDateStr})`;
+      break;
+    case 'ar':
+      emploiHeader = `جدول الحصص - F-JEID (مقرر في ${plannedDateStr})`;
+      break;
+    case 'en':
+    default:
+      emploiHeader = `TIMETABLE - F-JEID (Planned for ${plannedDateStr})`;
+      break;
+  }
+  doc.text(emploiHeader, 14, emploiHeaderY, { align: 'left' });
+
+  doc.setFontSize(18);
+  doc.setTextColor(41, 128, 185);
   
   // Set appropriate title based on language
   let title = "";
@@ -70,7 +103,8 @@ export const generateTimetablePDF = ({
       break;
   }
   
-  doc.text(title, 14, 15);
+  doc.text(title, 105, 60, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
   
   const currentDayLabels = DAY_LABELS[language];
   const dayLabels = DAYS_OF_WEEK.map(day => currentDayLabels[day as keyof typeof currentDayLabels]);
@@ -134,13 +168,74 @@ export const generateTimetablePDF = ({
   autoTable(doc, {
     head: [tableHeaders],
     body: tableRows,
-    startY: 25,
-    styles: { fontSize: 8, cellPadding: 3 },
-    headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255] },
-    alternateRowStyles: { fillColor: [240, 240, 240] },
-    theme: 'grid'
+    startY: 70,
+    styles: {
+      fontSize: 8, // smaller font
+      cellPadding: 2, // smaller padding
+      halign: 'center',
+      valign: 'middle',
+      textColor: [44, 62, 80],
+      lineColor: [41, 128, 185],
+      lineWidth: 0.2,
+      minCellHeight: 6, // reduce min cell height
+    },
+    headStyles: {
+      fillColor: [41, 128, 185],
+      textColor: [255, 255, 255],
+      fontSize: 9, // smaller header font
+      fontStyle: 'bold',
+      halign: 'center',
+      valign: 'middle',
+    },
+    alternateRowStyles: { fillColor: [245, 249, 255] },
+    theme: 'grid',
+    didDrawCell: (data) => {
+      // Highlight exam cells
+      if (typeof data.row.index === 'number' && data.cell.raw && String(data.cell.raw).includes('(EXAM')) {
+        doc.setTextColor(231, 76, 60);
+        doc.setFont(undefined, 'bold');
+      } else {
+        doc.setTextColor(44, 62, 80);
+        doc.setFont(undefined, 'normal');
+      }
+    }
   });
-  
+
+  // Footer
+  doc.setFontSize(10);
+
+  // Place signatures under the timetable using autoTable's return value
+  const signatureGap = 14; // vertical gap between signatures
+
+const footerY = 200; // Adjust based on your timetable's bottom Y position
+const signatureGapX = 70;
+
+const signatures = [
+  {
+    lines: ["Commandant de l'Académie Militaire"],
+    x: 14
+  },
+  {
+    lines: ["Commandant de l'Organe", "d'Enseignement et de Formation"],
+    x: 14 + signatureGapX
+  },
+  {
+    lines: ["Directeur de l'Enseignement", "Universitaire"],
+    x: 14 + signatureGapX * 2
+  }
+];
+
+signatures.forEach(sig => {
+  doc.text(sig.lines, sig.x, footerY, { align: 'left' });
+});
+
+
+
+
+  // Current date for the footer, right-aligned below the last signature
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
   // Filename based on language
   let filename;
   switch (language) {

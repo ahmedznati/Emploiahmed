@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { ScheduleEntry, Teacher } from '@/types';
 import { TIME_SLOTS, DAYS_OF_WEEK, formatTimeSlot } from '@/utils/scheduleUtils';
@@ -19,7 +18,8 @@ export function Timetable({ schedule, teachers, classes }: TimetableProps) {
   const [selectedClass, setSelectedClass] = useState<string>(classes.length > 0 ? classes[0].name : '');
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
   const timetableRef = useRef<HTMLDivElement>(null);
-  const { language } = useApp().state;
+  const { state } = useApp();
+  const language = state.language;
   const { t } = useTranslation();
   
   const getAvailableWeeks = (): number[] => {
@@ -46,13 +46,17 @@ export function Timetable({ schedule, teachers, classes }: TimetableProps) {
   };
   
   const downloadAsPDF = () => {
+    const plannedDate = state.scheduleSettings && state.scheduleSettings.startDate
+      ? new Date(state.scheduleSettings.startDate)
+      : new Date();
     generateTimetablePDF({
       schedule: filteredSchedule,
       teachers,
       selectedClass,
       selectedWeek,
       getTeacherName,
-      language
+      language: 'fr', // Force French for PDF
+      plannedDate
     });
   };
 

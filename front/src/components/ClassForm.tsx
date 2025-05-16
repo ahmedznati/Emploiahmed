@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Class, SubjectRequirement, DEFAULT_CLASS_NAMES } from '@/types';
+import { Class, SubjectRequirement, DEFAULT_CLASS_NAMES, Teacher } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,6 +46,8 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     cls?.subjectRequirements || []
   );
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teacherSelections, setTeacherSelections] = useState<Record<string, string>>({}); // subject -> teacherId
   const [mode, setMode] = useState<'add' | 'edit'>(cls ? 'edit' : 'add');
 
   console.log('ClassForm initialized with mode:', mode, 'and cls:', cls);
@@ -71,6 +73,20 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     fetchSubjects();
   }, []);
 
+  useEffect(() => {
+    async function fetchTeachers() {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/teachers`);
+        if (Array.isArray(response.data)) {
+          setTeachers(response.data.map((t: any) => ({ ...t, id: t._id || t.id })));
+        }
+      } catch (error) {
+        setTeachers([]);
+      }
+    }
+    fetchTeachers();
+  }, []);
+
   const handleAddRequirement = () => {
     if (
       selectedSubject &&
@@ -78,12 +94,13 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     ) {
       const hours = parseInt(hoursInput);
       if (isNaN(hours) || hours < 1) return;
-
+      const teacherId = teacherSelections[selectedSubject] || '';
       setRequirements([
         ...requirements,
         {
           subject: selectedSubject,
           hoursPerWeek: hours,
+          teacherId,
         },
       ]);
       setSelectedSubject('');
@@ -141,6 +158,12 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     setRequirements(requirements.filter(req => req.subject !== subject));
   };
 
+  const handleEditRequirementTeacher = (subject: string, teacherId: string) => {
+    setRequirements(reqs => reqs.map(req =>
+      req.subject === subject ? { ...req, teacherId } : req
+    ));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || requirements.length === 0) return;
@@ -159,6 +182,7 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
       subjectRequirements: requirements.map(req => ({
         subject: req.subject,
         hoursPerWeek: req.hoursPerWeek,
+        teacherId: req.teacherId || teacherSelections[req.subject] || '',
       })),
     };
 
@@ -229,6 +253,22 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
                 onChange={(e) => setHoursInput(e.target.value)}
                 className="w-20"
               />
+              {/* Teacher selection dropdown for the selected subject */}
+              {selectedSubject && (
+                <Select
+                  value={teacherSelections[selectedSubject] || ''}
+                  onValueChange={tid => setTeacherSelections(s => ({ ...s, [selectedSubject]: tid }))}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder={t('selectTeacher')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teachers.filter(t => t.subjects.includes(selectedSubject)).map(teacher => (
+                      <SelectItem key={teacher.id} value={teacher.id}>{teacher.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Label className="self-center whitespace-nowrap">{t('hours')}</Label>
               <Button 
                 type="button" 
@@ -270,19 +310,33 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
             
             {requirements.length > 0 ? (
               <div className="mt-4 space-y-2">
-                <div className="grid grid-cols-[1fr,auto,auto] gap-2 font-medium">
+                <div className="grid grid-cols-[1fr,auto,auto,auto] gap-2 font-medium">
                   <div>{t('subject')}</div>
                   <div>{t('totalHours')}</div>
+                  <div>{t('teacher')}</div>
                   <div></div>
                 </div>
                 
                 {requirements.map(req => (
                   <div 
                     key={req.subject}
-                    className="grid grid-cols-[1fr,auto,auto] gap-2 items-center border-b border-gray-light pb-2"
+                    className="grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center border-b border-gray-light pb-2"
                   >
                     <div>{t(req.subject)}</div>
                     <div className="text-center">{req.hoursPerWeek}</div>
+                    <Select
+                      value={req.teacherId || ''}
+                      onValueChange={tid => handleEditRequirementTeacher(req.subject, tid)}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder={t('selectTeacher')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teachers.filter(t => t.subjects.includes(req.subject)).map(teacher => (
+                          <SelectItem key={teacher.id} value={teacher.id}>{teacher.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Button 
                       type="button" 
                       variant="ghost" 

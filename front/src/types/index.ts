@@ -1,4 +1,3 @@
-
 export interface Teacher {
   id: string;
   name: string;
@@ -15,6 +14,7 @@ export interface Class {
 export interface SubjectRequirement {
   subject: string;
   hoursPerWeek: number;
+  teacherId?: string; // Assigned teacher for this subject
 }
 
 export interface WeeklyAvailability {

@@ -27,21 +27,31 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid fields' });
     }
 
-    // Log the validated data
-    console.log('Validated class data:', { id, name, subjectRequirements });
-
     // Check if the class name already exists
     const existingClass = await Class.findOne({ name });
     if (existingClass) {
       return res.status(400).json({ error: 'Class name already exists' });
     }
 
-    const newClass = new Class({ id, name, subjectRequirements });
+    // Auto-assign teachers to each subject requirement if not provided
+    const Teacher = require('../models/TeacherModel');
+    const updatedSubjectRequirements = await Promise.all(subjectRequirements.map(async (req) => {
+      if (req.teacherId) return req; // already assigned
+      // Find a teacher who teaches this subject
+      const teacher = await Teacher.findOne({ subjects: req.subject });
+      if (teacher) {
+        return { ...req, teacherId: teacher._id.toString() };
+      }
+      return req; // no teacher found, leave as is
+    }));
+
+    const newClass = new Class({ id, name, subjectRequirements: updatedSubjectRequirements });
     await newClass.save();
 
     res.json({ success: true, id: newClass.id });
   } catch (error) {
     console.error('Error adding class:', error);
+    res.status(500).json({ error: 'Failed to add class' });
   }
 });
 
