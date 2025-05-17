@@ -30,4 +30,20 @@ router.post('/schedule', async (req, res) => {
   }
 });
 
+// Save generated schedule (append or replace)
+router.post('/schedule/save', async (req, res) => {
+  try {
+    const data = req.body; // Array of schedule entries
+    if (!Array.isArray(data) || data.length === 0) {
+      return res.status(400).json({ error: 'No schedule data provided' });
+    }
+    // Optionally: clear existing schedule or just insert new
+    await Schedule.deleteMany();
+    await Schedule.insertMany(data);
+    res.json({ success: true, message: 'Schedule saved to database' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save schedule' });
+  }
+});
+
 module.exports = router;

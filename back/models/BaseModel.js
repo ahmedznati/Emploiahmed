@@ -5,10 +5,7 @@ const mongoose = require('mongoose');
  */
 const BaseSchema = new mongoose.Schema(
   {
-    id: {
-      type: String,
-      default: () => new mongoose.Types.ObjectId().toString(),
-    },
+    // id field removed to avoid conflict
   },
   { timestamps: true } // Adds createdAt and updatedAt fields
 );

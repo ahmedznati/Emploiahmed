@@ -89,7 +89,7 @@ export function Header() {
           <Button 
             variant="ghost" 
             className="text-white hover:bg-blue-dark"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/index")}
           >
             {t("timetable")}
           </Button>
