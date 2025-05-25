@@ -180,13 +180,21 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     e.preventDefault();
     if (!name || requirements.length === 0) return;
 
+    // Duplicate class name check (case-insensitive, trimmed)
+    const trimmedName = name.trim();
+    const duplicate = state.classes.some(
+      (c) => c.name.trim().toLowerCase() === trimmedName.toLowerCase() && c.id !== id
+    );
+    if (duplicate) {
+      alert('class already existant');
+      return;
+    }
+
     // Fallback check to ensure correct request is triggered
     if (!cls && mode === 'edit') {
       console.error('Edit mode triggered without a valid class object');
       return;
     }
-
-    const trimmedName = name.trim();
 
     const classData = {
       id,

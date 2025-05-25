@@ -83,7 +83,7 @@ const AdminPanel = () => {
   
   const handleGenerateSchedule = () => {
     updateScheduleSettings(scheduleSettings);
-    generateNewSchedule(scheduleSettings); // Always use the latest value
+    generateNewSchedule(); // Always use the latest value
   };
 
   const handleChangePassword = () => {

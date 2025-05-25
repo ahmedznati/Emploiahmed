@@ -28,6 +28,11 @@ export function TeacherManagement() {
   }, []);
 
   const handleSubmit = (teacher: Teacher) => {
+    const isDuplicate = teachers.some(t => t.name.trim().toLowerCase() === teacher.name.trim().toLowerCase() && t.id !== teacher.id);
+    if (isDuplicate) {
+      alert('teacher already existant');
+      return;
+    }
     if (teacher.id.startsWith('teacher-')) {
       addTeacher(teacher);
     } else {
