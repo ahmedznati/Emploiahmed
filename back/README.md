@@ -1,36 +1,29 @@
-
 # Military School Timetable Backend
 
-This is a Python/Flask backend for the Military School Timetable application. It replaces the Supabase backend with a local SQLite database while maintaining all the functionality of the original application.
+This backend replaces the previous Python/Flask backend. All endpoints and database logic are now implemented in Node.js/Express with MongoDB (Mongoose).
 
-## Setup Instructions
+## Main Files
+- `app.js`: Main entry point (replaces `app.py`).
+- `config.js`: Configuration (replaces `config.py`).
+- `database.js`: MongoDB connection (replaces `database.py`).
+- `init_db.js`: Database initializer (replaces `init_db.py`).
 
-1. Create a virtual environment (optional but recommended)
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+## Running the Server
+
+1. Install dependencies:
+   ```sh
+   npm install
    ```
-
-2. Install dependencies
-   ```bash
-   pip install -r requirements.txt
+2. Start the server:
+   ```sh
+   node app.js
    ```
-
-3. Run the server
-   ```bash
-   python app.py
-   ```
-
-The server will start at http://localhost:5000
 
 ## API Endpoints
+- `/api/schedule` - Schedule management
+- `/api/classes` - Class management
+- `/api/teachers` - Teacher management
+- `/api/auth` - Authentication
+- `/api/subjects` - Subject management
 
-- `/api/teachers` - GET, POST - Get all teachers or add a new teacher
-- `/api/teachers/<id>` - PUT, DELETE - Update or delete a teacher
-- `/api/classes` - GET, POST - Get all classes or add a new class
-- `/api/classes/<id>` - PUT, DELETE - Update or delete a class
-- `/api/schedule` - GET, POST - Get the schedule or update the entire schedule
-
-## Database
-
-The application uses SQLite stored in `db/school_timetable.db`. The database is created automatically when the application runs for the first time.
+All logic is now in JavaScript/Node.js. No Python/Flask code is used.

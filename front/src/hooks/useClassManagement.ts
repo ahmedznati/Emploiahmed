@@ -14,9 +14,13 @@ export function useClassManagement(initialClasses: Class[], setClasses: (classes
 
       console.log('Sending class data:', newClass);
 
-      const response = await fetch('http://localhost:5000/api/classes', {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch('/api/classes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(newClass),
       });
 
@@ -45,9 +49,12 @@ export function useClassManagement(initialClasses: Class[], setClasses: (classes
 
       // Remove supabase reference and handle requirements
       if (newClass.subjectRequirements && newClass.subjectRequirements.length > 0) {
-        const response = await fetch(`http://localhost:5000/api/classes/${newClass.id}/requirements`, {
+        const response = await fetch(`/api/classes/${newClass.id}/requirements`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
           body: JSON.stringify(newClass.subjectRequirements),
         });
 
@@ -72,9 +79,13 @@ export function useClassManagement(initialClasses: Class[], setClasses: (classes
 
   const updateClass = async (cls: Class) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/classes/${cls.id}`, {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch(`/api/classes/${cls.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(cls),
       });
 
@@ -96,8 +107,12 @@ export function useClassManagement(initialClasses: Class[], setClasses: (classes
 
    const deleteClass = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/classes/${id}`, {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch(`/api/classes/${id}`, {
         method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -118,7 +133,12 @@ export function useClassManagement(initialClasses: Class[], setClasses: (classes
       }
       // Optionally, refresh classes from backend after delete
       try {
-        const fetchResponse = await fetch('http://localhost:5000/api/classes');
+        const token = localStorage.getItem('jwtToken');
+        const fetchResponse = await fetch('/api/classes', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
         if (fetchResponse.ok) {
           const data = await fetchResponse.json();
           setClasses(data);

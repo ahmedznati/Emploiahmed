@@ -9,8 +9,10 @@ export function generateSchedule(
 ): ScheduleEntry[] {
   const schedule: ScheduleEntry[] = [];
   let scheduleId = 1;
-
   const classDistributionPlans = createDistributionPlans(classes, settings.numberOfWeeks);
+
+  // Track last 4-hour day for each subject/class/week
+  const lastFourHourDay: Record<string, Record<string, Record<number, string | null>>> = {};
 
   for (let week = 1; week <= settings.numberOfWeeks; week++) {
     const rotatedDays = [...DAYS_OF_WEEK];
@@ -21,99 +23,100 @@ export function generateSchedule(
         if (day) rotatedDays.push(day);
       }
     }
-
     const shuffledClasses = [...classes].sort((a, b) =>
       ((a.name.charCodeAt(0) + week) % 26) - ((b.name.charCodeAt(0) + week) % 26)
     );
-
     for (const cls of shuffledClasses) {
       const distributionPlan = classDistributionPlans[cls.id];
       if (!distributionPlan) continue;
-
+      if (!lastFourHourDay[cls.id]) lastFourHourDay[cls.id] = {};
       for (const req of cls.subjectRequirements) {
         const weekPlan = distributionPlan[req.subject];
         if (!weekPlan || !weekPlan[week]) continue;
-
+        if (!lastFourHourDay[cls.id][req.subject]) lastFourHourDay[cls.id][req.subject] = {};
         const hoursForThisWeek = weekPlan[week];
         let hoursAssigned = 0;
-        // Only use the assigned teacher if teacherId is set
         let eligibleTeachers: Teacher[];
         if (req.teacherId) {
           const assignedTeacher = teachers.find(t => t.id === req.teacherId);
           eligibleTeachers = assignedTeacher ? [assignedTeacher] : [];
         } else {
-          eligibleTeachers = teachers.filter(t =>
-            t.subjects.includes(req.subject)
-          );
+          eligibleTeachers = teachers.filter(t => t.subjects.includes(req.subject));
         }
-
         if (eligibleTeachers.length === 0) {
           console.warn(`No teachers available for ${req.subject} in class ${cls.name}`);
           continue;
         }
-
-        const subjectHoursPerDay: Record<string, Record<string, number>> = {};
-        for (const day of DAYS_OF_WEEK) {
-          subjectHoursPerDay[day] = { [req.subject]: 0 };
-        }
-
         let hoursLeft = hoursForThisWeek;
         let dayIndex = 0;
-
-        const dailyHourChunks: number[] = [];
-        let remaining = hoursLeft;
-        while (remaining > 0) {
-          if (remaining >= 3) {
-            dailyHourChunks.push(3);
-            remaining -= 3;
-          } else {
-            dailyHourChunks.push(remaining);
-            remaining = 0;
-          }
-        }
-
-        let chunkIdx = 0;
-        while (chunkIdx < dailyHourChunks.length && dayIndex < DAYS_OF_WEEK.length) {
+        // Try to assign in blocks, max 4 per day, always consecutive
+        const assignedDays: string[] = [];
+        while (hoursLeft > 0 && dayIndex < DAYS_OF_WEEK.length) {
           const day = DAYS_OF_WEEK[dayIndex];
-          const assignable = dailyHourChunks[chunkIdx];
+          // Enforce 1-day gap after a 4-hour block
+          const last4hDay = lastFourHourDay[cls.id][req.subject][week];
+          if (
+            last4hDay &&
+            DAYS_OF_WEEK.includes(day) &&
+            DAYS_OF_WEEK.includes(last4hDay as typeof DAYS_OF_WEEK[number]) &&
+            Math.abs(DAYS_OF_WEEK.indexOf(day as typeof DAYS_OF_WEEK[number]) - DAYS_OF_WEEK.indexOf(last4hDay as typeof DAYS_OF_WEEK[number])) === 1
+          ) {
+            dayIndex++;
+            continue;
+          }
+          // Find max block (4, 3, 2, 1) that fits and does not exceed 4 per day
+          let block = Math.min(4, hoursLeft);
           let found = false;
-
-          for (let timeIndex = 0; timeIndex <= TIME_SLOTS.length - assignable; timeIndex++) {
-            let canAssign = true;
-
-            for (let c = 0; c < assignable; c++) {
-              const startTime = TIME_SLOTS[timeIndex + c];
-              const classHasSession = schedule.some(entry =>
-                entry.className === cls.name &&
-                entry.day === day &&
-                entry.startTime === startTime &&
-                entry.week === week
-              );
-              if (classHasSession) {
-                canAssign = false;
-                break;
+          while (block > 0 && !found) {
+            for (let timeIndex = 0; timeIndex <= TIME_SLOTS.length - block; timeIndex++) {
+              // Only allow 4-hour block if all in morning or all in afternoon
+              if (block === 4) {
+                const morning = TIME_SLOTS.slice(0, 4).map(t => t);
+                const afternoon = TIME_SLOTS.slice(-4).map(t => t);
+                const blockSlots = TIME_SLOTS.slice(timeIndex, timeIndex + 4);
+                const isMorning = blockSlots.every(s => morning.includes(s));
+                const isAfternoon = blockSlots.every(s => afternoon.includes(s));
+                if (!isMorning && !isAfternoon) continue;
               }
-            }
-
-            if (canAssign) {
-              for (let c = 0; c < assignable; c++) {
+              // Check if block is free for this class
+              let canAssign = true;
+              for (let c = 0; c < block; c++) {
                 const startTime = TIME_SLOTS[timeIndex + c];
-                const endTime = TIME_SLOTS[timeIndex + c + 1];
-                const availableTeachers = eligibleTeachers.filter(teacher =>
-                  isTeacherAvailable(teacher, day, startTime, endTime) &&
-                  !isTeacherBooked(teacher.id, schedule, day, startTime, endTime, week)
+                const classHasSession = schedule.some(entry =>
+                  entry.className === cls.name &&
+                  entry.day === day &&
+                  entry.startTime === startTime &&
+                  entry.week === week
                 );
-
-                if (availableTeachers.length > 0) {
-                  const teacherLoads = availableTeachers.map(teacher => ({
-                    teacher,
-                    load: schedule.filter(entry =>
-                      entry.teacherId === teacher.id && entry.week === week
-                    ).length
-                  }));
-                  teacherLoads.sort((a, b) => a.load - b.load);
-                  const selectedTeacher = teacherLoads[0].teacher;
-
+                if (classHasSession) {
+                  canAssign = false;
+                  break;
+                }
+              }
+              if (!canAssign) continue;
+              // Check teacher availability for the whole block
+              let availableTeachers = eligibleTeachers.filter(teacher => {
+                for (let c = 0; c < block; c++) {
+                  const startTime = TIME_SLOTS[timeIndex + c];
+                  const endTime = TIME_SLOTS[timeIndex + c + 1];
+                  if (!isTeacherAvailable(teacher, day, startTime, endTime) ||
+                    isTeacherBooked(teacher.id, schedule, day, startTime, endTime, week)) {
+                    return false;
+                  }
+                }
+                return true;
+              });
+              if (availableTeachers.length > 0) {
+                // Assign to teacher with least load
+                const teacherLoads = availableTeachers.map(teacher => ({
+                  teacher,
+                  load: schedule.filter(entry => entry.teacherId === teacher.id && entry.week === week).length
+                }));
+                teacherLoads.sort((a, b) => a.load - b.load);
+                const selectedTeacher = teacherLoads[0].teacher;
+                for (let c = 0; c < block; c++) {
+                  const startTime = TIME_SLOTS[timeIndex + c];
+                  const endTime = TIME_SLOTS[timeIndex + c + 1];
                   schedule.push({
                     id: `schedule-${scheduleId++}`,
                     day: day as ScheduleEntry["day"],
@@ -124,39 +127,30 @@ export function generateSchedule(
                     subject: req.subject,
                     week
                   });
-
                   hoursAssigned++;
-                  subjectHoursPerDay[day][req.subject]++;
                   hoursLeft--;
                 }
+                assignedDays.push(day);
+                if (block === 4) {
+                  lastFourHourDay[cls.id][req.subject][week] = day;
+                }
+                found = true;
+                break;
               }
-              found = true;
-              break;
             }
+            if (!found) block--;
           }
-
-          if (found) {
-            chunkIdx++;
-            dayIndex++;
-          } else {
-            dayIndex++;
-            if (dayIndex >= DAYS_OF_WEEK.length) {
-              dayIndex = 0;
-            }
-          }
+          dayIndex++;
         }
-
         if (hoursAssigned < hoursForThisWeek) {
           console.warn(`Could only assign ${hoursAssigned}/${hoursForThisWeek} hours for ${req.subject} in class ${cls.name} for week ${week}`);
         }
       }
     }
   }
-
   if (settings.examSchedulingEnabled) {
     scheduleExams(schedule, teachers, classes, settings.numberOfWeeks, scheduleId);
   }
-
   return schedule;
 }
 
@@ -273,7 +267,7 @@ function scheduleExams(
               day: day as ScheduleEntry["day"],
               startTime,
               endTime,
-              teacherId: examTeacher ? examTeacher.id : (selectedTeacher ? selectedTeacher.id : ''), // Use the subject's assigned teacher if available
+              teacherId: examTeacher ? examTeacher.id : (selectedTeacher ? selectedTeacher.id : ''), 
               className: cls.name,
               subject: `${subject} Exam`,
               isExam: true,

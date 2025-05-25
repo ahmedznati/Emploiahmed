@@ -13,7 +13,9 @@ app.use(express.json());
 app.use(cors());
 
 // MongoDB Connection
-mongoose.connect('mongodb://localhost:27017/ahmed')
+const { mongoUri } = require('./config');
+console.log('[DB] Using mongoUri:', mongoUri);
+mongoose.connect(mongoUri)
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('Error connecting to MongoDB:', err));
 
@@ -24,9 +26,10 @@ const teachersRoutes = require('./routes/teachersRoutes');
 const authRoutes = require('./routes/authRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 
-app.use('/api', scheduleRoutes);
+// Mount all routers at their resource root
 app.use('/api/classes', classRoutes);
-app.use('/api', teachersRoutes);
+app.use('/api/teachers', teachersRoutes);
+app.use('/api/schedule', scheduleRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
 

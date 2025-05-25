@@ -24,7 +24,7 @@ export const getStoredSubjects = (): string[] => {
 
 export const getAllSubjects = async (): Promise<string[]> => {
   try {
-    const response = await fetch('http://localhost:5000/api/subjects');
+    const response = await fetch('/api/subjects');
     if (!response.ok) {
       throw new Error('Failed to fetch subjects');
     }

@@ -15,7 +15,7 @@ export function TeacherManagement() {
   useEffect(() => {
     const fetchTeachers = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/teachers');
+        const response = await fetch('/api/teachers');
         if (response.ok) {
           const data = await response.json();
           setTeachers(data.map((t: { _id: string; name: string; subjects: string[]; availability: Record<string, unknown> }) => ({ ...t, id: t._id })));

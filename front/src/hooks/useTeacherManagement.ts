@@ -16,9 +16,13 @@ export function useTeacherManagement(
   const addTeacher = async (teacher: Teacher) => {
     try {
       console.log('addTeacher called with teacher:', teacher);
-      const response = await fetch('http://localhost:5000/api/teachers', {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch('/api/teachers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(teacher),
       });
 
@@ -57,9 +61,13 @@ export function useTeacherManagement(
 
   const updateTeacher = async (teacher: Teacher) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/teachers/${teacher.id}`, {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch(`/api/teachers/${teacher.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(teacher),
       });
 
@@ -87,8 +95,12 @@ export function useTeacherManagement(
 
   const deleteTeacher = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/teachers/${id}`, {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch(`/api/teachers/${id}`, {
         method: 'DELETE',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
       });
 
       if (!response.ok) {
@@ -112,7 +124,12 @@ export function useTeacherManagement(
       }
       // Always refresh teachers from backend after delete
       try {
-        const fetchResponse = await fetch('http://localhost:5000/api/teachers');
+        const token = localStorage.getItem('jwtToken');
+        const fetchResponse = await fetch('/api/teachers', {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
         if (fetchResponse.ok) {
           const data = await fetchResponse.json();
           setTeachers(data.map((t: { _id: string; name: string; subjects: string[]; availability: Record<string, unknown> }) => ({ ...t, id: t._id })));

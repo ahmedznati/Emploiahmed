@@ -1,3 +1,4 @@
+
 import { AppProvider } from "@/context/AppProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -46,7 +47,7 @@ const App = () => {
             <Routes>
               <Route path="/teachers" element={<TeacherManagement />} />
               <Route path="/" element={<Index />} />
-              <Route path="/index" element={<Index />} />
+              <Route path="/index" element={<HomePage/>} />
               <Route path="/timetable" element={<PublicTimetable />} />
               <Route path="/admin" element={
                 <LayoutWrapper>

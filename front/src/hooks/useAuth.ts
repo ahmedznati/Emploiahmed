@@ -24,7 +24,7 @@ export function useAuth() {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -42,6 +42,12 @@ export function useAuth() {
           }
         } catch { /* ignore JSON parse errors */ }
         throw new Error(errorMsg);
+      }
+
+      // Store JWT token in localStorage
+      const data = await response.json();
+      if (data.token) {
+        localStorage.setItem('jwtToken', data.token);
       }
 
       setIsAuthenticated(true);
@@ -65,6 +71,7 @@ export function useAuth() {
   const logout = () => {
     setIsAuthenticated(false);
     setCurrentRole('public');
+    localStorage.removeItem('jwtToken');
     toast({
       title: "Déconnexion",
       description: "Vous avez été déconnecté du panneau d'administration."
@@ -73,7 +80,7 @@ export function useAuth() {
 
   const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/change-password", {
+      const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword }),

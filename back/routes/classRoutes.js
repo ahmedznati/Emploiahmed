@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const Class = require('../models/ClassModel');
+const authenticateToken = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ router.get('/', async (req, res) => {
 });
 
 // Add a new class
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     console.log('Incoming request data:', req.body);
 
@@ -56,7 +57,7 @@ router.post('/', async (req, res) => {
 });
 
 // Update a class by ID
-router.put('/:classId', async (req, res) => {
+router.put('/:classId', authenticateToken, async (req, res) => {
   try {
     const { classId } = req.params;
     const data = req.body;
@@ -115,7 +116,7 @@ router.post('/:classId/requirements', async (req, res) => {
 });
 
 // Delete a class by ID
-router.delete('/:classId', async (req, res) => {
+router.delete('/:classId', authenticateToken, async (req, res) => {
   try {
     const { classId } = req.params;
     // Try to delete by custom id field first

@@ -48,7 +48,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/subjects');
+        const response = await fetch('/api/subjects');
         if (response.ok) {
           const data = await response.json();
           setAvailableSubjects(data.map((subject: { name: string }) => subject.name));
@@ -82,7 +82,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
   const handleAddCustomSubject = async () => {
     if (newSubject.trim() && !subjects.includes(newSubject.trim())) {
       try {
-        const response = await fetch('http://localhost:5000/api/subjects', {
+        const response = await fetch('/api/subjects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: newSubject.trim() }),

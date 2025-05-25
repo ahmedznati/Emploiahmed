@@ -11,8 +11,8 @@ export function useDataLoader(initialState: Pick<AppState, "teachers" | "classes
     const loadData = async () => {
       try {
         const [teachersResponse, classesResponse] = await Promise.all([
-          fetch('http://localhost:5000/api/teachers'),
-          fetch('http://localhost:5000/api/classes'),
+          fetch('/api/teachers'),
+          fetch('/api/classes'),
         ]);
 
         if (!teachersResponse.ok || !classesResponse.ok) {

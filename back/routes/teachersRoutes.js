@@ -1,11 +1,12 @@
 // routes/teacherRoutes.js
 const express = require('express');
 const Teacher = require('../models/TeacherModel');
+const authenticateToken = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 // Get all teachers
-router.get('/teachers', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const teachers = await Teacher.find();
     res.json(teachers);
@@ -15,13 +16,19 @@ router.get('/teachers', async (req, res) => {
 });
 
 // Add a new teacher
-router.post('/teachers', async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { name, subjects, availability } = req.body;
 
     // Validate required fields
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
+    }
+
+    // Check if a teacher with the same name already exists (case-insensitive)
+    const existing = await Teacher.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
+    if (existing) {
+      return res.status(400).json({ error: 'The teacher already exists' });
     }
 
     const newTeacher = new Teacher({ name, subjects, availability });
@@ -34,7 +41,7 @@ router.post('/teachers', async (req, res) => {
 });
 
 // Update a teacher by ID
-router.put('/teachers/:teacherId', async (req, res) => {
+router.put('/:teacherId', authenticateToken, async (req, res) => {
   try {
     const { teacherId } = req.params;
     const { name, subjects, availability } = req.body;
@@ -61,7 +68,7 @@ router.put('/teachers/:teacherId', async (req, res) => {
 });
 
 // Delete a teacher by ID
-router.delete('/teachers/:teacherId', async (req, res) => {
+router.delete('/:teacherId', authenticateToken, async (req, res) => {
   try {
     const { teacherId } = req.params;
 

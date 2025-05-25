@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { AppState, ScheduleSettings } from "../types";
 import { generateSchedule } from "../utils/scheduleGenerator";
@@ -44,13 +43,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const generateNewSchedule = () => {
-    const newSchedule = generateSchedule(teachers, classes, scheduleSettings);
+  // Accept optional settings override for schedule generation
+  const generateNewSchedule = async (overrideSettings?: ScheduleSettings) => {
+    const settingsToUse = overrideSettings || scheduleSettings;
+    const newSchedule = generateSchedule(teachers, classes, settingsToUse);
     setSchedule(newSchedule);
     toast({
       title: "Emploi du temps généré",
       description: `Un nouvel emploi du temps a été généré avec ${newSchedule.length} sessions de cours.`
     });
+    // Save to backend
+    try {
+      const token = localStorage.getItem('jwtToken');
+      await fetch("/api/schedule/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(newSchedule)
+      });
+      toast({
+        title: "Enregistré dans la base de données",
+        description: "L'emploi du temps a été sauvegardé avec succès."
+      });
+    } catch (err) {
+      toast({
+        title: "Erreur d'enregistrement",
+        description: "Impossible de sauvegarder l'emploi du temps dans la base de données.",
+        variant: "destructive"
+      });
+    }
   };
 
   const toggleLanguage = (lang: 'en' | 'ar' | 'fr') => {

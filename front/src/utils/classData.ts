@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export const getAllClassNames = async (): Promise<string[]> => {
   try {
-    const response = await fetch('http://localhost:5000/api/classes/names');
+    const response = await fetch('/api/classes/names');
     if (!response.ok) {
       throw new Error('Failed to fetch class names');
     }

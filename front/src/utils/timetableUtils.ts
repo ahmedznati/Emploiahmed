@@ -165,7 +165,8 @@ export const generateTimetablePDF = ({
     return rowData;
   });
   
-  autoTable(doc, {
+  // Draw the table and get the Y position after the table
+  const autoTableResult = autoTable(doc, {
     head: [tableHeaders],
     body: tableRows,
     startY: 70,
@@ -204,33 +205,29 @@ export const generateTimetablePDF = ({
   // Footer
   doc.setFontSize(10);
 
-  // Place signatures under the timetable using autoTable's return value
-  const signatureGap = 14; // vertical gap between signatures
+  // Place signatures under the timetable using autoTable's finalY
+  // jsPDF-AutoTable attaches lastAutoTable to the doc instance
+  const footerY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : 200;
+  const signatureGapX = 70;
 
-const footerY = 200; // Adjust based on your timetable's bottom Y position
-const signatureGapX = 70;
+  const signatures = [
+    {
+      lines: ["Commandant de l'Académie Militaire"],
+      x: 14
+    },
+    {
+      lines: ["Commandant de l'Organe", "d'Enseignement et de Formation"],
+      x: 14 + signatureGapX
+    },
+    {
+      lines: ["Directeur de l'Enseignement", "Universitaire"],
+      x: 14 + signatureGapX * 2
+    }
+  ];
 
-const signatures = [
-  {
-    lines: ["Commandant de l'Académie Militaire"],
-    x: 14
-  },
-  {
-    lines: ["Commandant de l'Organe", "d'Enseignement et de Formation"],
-    x: 14 + signatureGapX
-  },
-  {
-    lines: ["Directeur de l'Enseignement", "Universitaire"],
-    x: 14 + signatureGapX * 2
-  }
-];
-
-signatures.forEach(sig => {
-  doc.text(sig.lines, sig.x, footerY, { align: 'left' });
-});
-
-
-
+  signatures.forEach(sig => {
+    doc.text(sig.lines, sig.x, footerY, { align: 'left' });
+  });
 
   // Current date for the footer, right-aligned below the last signature
   const today = new Date();

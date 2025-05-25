@@ -26,7 +26,7 @@ const HomePage = () => {
         connectionChecked.current = true; // Set flag to prevent multiple checks
 
         // Simple test to fetch teachers from the backend API
-        const response = await fetch('http://localhost:5000/api/teachers', {
+        const response = await fetch('/api/teachers', {
           signal: AbortSignal.timeout(3000),
         });
 

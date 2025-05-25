@@ -54,10 +54,18 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
 
   const id = cls?.id || `class-${Date.now()}`;
 
+  // Utility to get JWT token header
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('jwtToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   useEffect(() => {
     async function fetchSubjects() {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/subjects`);
+        const response = await axios.get('/api/subjects', {
+          headers: { ...getAuthHeaders() }
+        });
         if (Array.isArray(response.data)) {
           const subjectNames = response.data.map((subject: { name: string }) => subject.name);
           setAvailableSubjects(subjectNames);
@@ -76,7 +84,9 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
   useEffect(() => {
     async function fetchTeachers() {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/teachers`);
+        const response = await axios.get('/api/teachers', {
+          headers: { ...getAuthHeaders() }
+        });
         if (Array.isArray(response.data)) {
           setTeachers(response.data.map((t: any) => ({ ...t, id: t._id || t.id })));
         }
@@ -138,7 +148,9 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
     }
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/subjects`, { name: newSubject });
+      const response = await axios.post('/api/subjects', { name: newSubject }, {
+        headers: { ...getAuthHeaders() }
+      });
       const createdSubject = response.data.subject;
 
       // Add the new subject to the dropdown options
@@ -188,9 +200,13 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
 
     try {
       if (mode === 'add') {
-        await axios.post(`${API_BASE_URL}/api/classes`, classData);
+        await axios.post('/api/classes', classData, {
+          headers: { ...getAuthHeaders() }
+        });
       } else {
-        await axios.put(`${API_BASE_URL}/api/classes/${id}`, classData);
+        await axios.put(`/api/classes/${id}`, classData, {
+          headers: { ...getAuthHeaders() }
+        });
       }
 
       if (typeof onSubmit === 'function') {
