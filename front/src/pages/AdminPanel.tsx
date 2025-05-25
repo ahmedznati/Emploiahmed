@@ -139,7 +139,7 @@ const AdminPanel = () => {
             <DialogFooter>
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                className="w-full bg-[#5E966F] text-white py-2 rounded hover:bg-[#5E966F]"
               >
                 Login
               </button>
