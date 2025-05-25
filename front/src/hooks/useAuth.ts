@@ -22,6 +22,18 @@ export function useAuth() {
     localStorage.setItem('adminPassword', adminPassword);
   }, [adminUsername, adminPassword]);
 
+  // Restore authentication state from JWT token on initial load
+  useEffect(() => {
+    const token = localStorage.getItem('jwtToken');
+    if (token) {
+      setIsAuthenticated(true);
+      setCurrentRole('admin');
+    } else {
+      setIsAuthenticated(false);
+      setCurrentRole('public');
+    }
+  }, []);
+
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const response = await fetch("/api/auth/login", {

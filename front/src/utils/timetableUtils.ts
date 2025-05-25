@@ -127,9 +127,10 @@ export const generateTimetablePDF = ({
   const tableHeaders = [timeHeader, ...dayLabels];
   
   const getScheduleEntry = (day: string, timeSlot: string): ScheduleEntry | undefined => {
-    return schedule.find(entry => 
-      entry.day === day && 
-      entry.startTime === timeSlot
+    return schedule.find(entry =>
+      entry.day === day &&
+      entry.startTime <= timeSlot &&
+      entry.endTime > timeSlot
     );
   };
   

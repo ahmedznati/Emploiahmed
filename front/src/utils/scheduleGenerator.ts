@@ -13,6 +13,8 @@ export function generateSchedule(
 
   // Track last 4-hour day for each subject/class/week
   const lastFourHourDay: Record<string, Record<string, Record<number, string | null>>> = {};
+  // Track last session for each subject/class
+  const lastSession: Record<string, Record<string, { week: number; day: string; endTime: string }>> = {};
 
   for (let week = 1; week <= settings.numberOfWeeks; week++) {
     const rotatedDays = [...DAYS_OF_WEEK];
@@ -30,6 +32,7 @@ export function generateSchedule(
       const distributionPlan = classDistributionPlans[cls.id];
       if (!distributionPlan) continue;
       if (!lastFourHourDay[cls.id]) lastFourHourDay[cls.id] = {};
+      if (!lastSession[cls.id]) lastSession[cls.id] = {};
       for (const req of cls.subjectRequirements) {
         const weekPlan = distributionPlan[req.subject];
         if (!weekPlan || !weekPlan[week]) continue;
@@ -129,6 +132,8 @@ export function generateSchedule(
                   });
                   hoursAssigned++;
                   hoursLeft--;
+                  // Track last session for this subject/class
+                  lastSession[cls.id][req.subject] = { week, day, endTime };
                 }
                 assignedDays.push(day);
                 if (block === 4) {
@@ -145,12 +150,91 @@ export function generateSchedule(
         if (hoursAssigned < hoursForThisWeek) {
           console.warn(`Could only assign ${hoursAssigned}/${hoursForThisWeek} hours for ${req.subject} in class ${cls.name} for week ${week}`);
         }
+        // If this is the last week for this subject, schedule its exam the next day
+        const totalWeeks = settings.numberOfWeeks;
+        const isLastWeek = week === totalWeeks;
+        // Calculate total assigned so far for this subject/class
+        let totalAssigned = 0;
+        for (let w = 1; w <= totalWeeks; w++) {
+          const weekPlan = distributionPlan[req.subject];
+          if (weekPlan && weekPlan[w]) {
+            // Count how many sessions are scheduled for this subject/class/week
+            totalAssigned += schedule.filter(e => e.className === cls.name && e.subject === req.subject && e.week === w).length;
+          }
+        }
+        const totalRequired = Object.values(distributionPlan[req.subject] || {}).reduce((a, b) => a + b, 0);
+        if (settings.examSchedulingEnabled && totalAssigned === totalRequired) {
+          // Schedule exam the next day after last session
+          const last = lastSession[cls.id][req.subject];
+          if (last) {
+            let examWeek = last.week;
+            const lastDay = last.day as typeof DAYS_OF_WEEK[number];
+            let examDayIndex = DAYS_OF_WEEK.indexOf(lastDay) + 1;
+            if (examDayIndex >= DAYS_OF_WEEK.length) {
+              examDayIndex = 0;
+              examWeek++;
+            }
+            let foundExamSlot = false;
+            const preferredExamDays = [DAYS_OF_WEEK[examDayIndex], ...DAYS_OF_WEEK.filter((d, i) => i !== examDayIndex)];
+            const eligibleTeachers = req.teacherId
+              ? teachers.filter(t => t.id === req.teacherId)
+              : teachers.filter(t => t.subjects.includes(req.subject));
+            let examTeacher: Teacher | undefined = eligibleTeachers[0];
+            for (const day of preferredExamDays) {
+              if (foundExamSlot) break;
+              for (let timeIndex = 0; timeIndex < TIME_SLOTS.length - 2; timeIndex++) {
+                const startTime = TIME_SLOTS[timeIndex];
+                const endTime = TIME_SLOTS[timeIndex + 2]; // Always 2-hour duration
+                // Only allow if both startTime and endTime are valid
+                if (!startTime || !endTime) continue;
+                // Check for conflicts
+                const conflict = schedule.some(entry =>
+                  entry.className === cls.name &&
+                  entry.day === day &&
+                  entry.week === examWeek &&
+                  ((entry.startTime <= startTime && entry.endTime > startTime) ||
+                    (entry.startTime < endTime && entry.endTime >= endTime) ||
+                    (entry.startTime >= startTime && entry.endTime <= endTime))
+                );
+                if (conflict) continue;
+                // Check teacher availability
+                let availableTeachers: Teacher[] = eligibleTeachers.filter(teacher =>
+                  isTeacherAvailable(teacher, day, startTime, endTime) &&
+                  !isTeacherBooked(teacher.id, schedule, day, startTime, endTime, examWeek)
+                );
+                if (availableTeachers.length > 0) {
+                  // Assign to teacher with least exam load
+                  const teacherLoads = availableTeachers.map(teacher => ({
+                    teacher,
+                    load: schedule.filter(entry => entry.teacherId === teacher.id && entry.week === examWeek && entry.isExam).length
+                  }));
+                  teacherLoads.sort((a, b) => a.load - b.load);
+                  const selectedTeacher = teacherLoads[0].teacher;
+                  schedule.push({
+                    id: `exam-${scheduleId++}`,
+                    day: day as ScheduleEntry["day"],
+                    startTime,
+                    endTime, // Always 2-hour duration
+                    teacherId: selectedTeacher.id,
+                    className: cls.name,
+                    subject: `${req.subject} Exam`,
+                    isExam: true,
+                    week: examWeek
+                  });
+                  foundExamSlot = true;
+                  break;
+                }
+              }
+            }
+            if (!foundExamSlot) {
+              console.warn(`Could not schedule exam for ${req.subject} in class ${cls.name}`);
+            }
+          }
+        }
       }
     }
   }
-  if (settings.examSchedulingEnabled) {
-    scheduleExams(schedule, teachers, classes, settings.numberOfWeeks, scheduleId);
-  }
+  // Remove old scheduleExams call, as exams are now scheduled inline
   return schedule;
 }
 
@@ -181,104 +265,4 @@ function createDistributionPlans(classes: Class[], numberOfWeeks: number) {
   });
 
   return plans;
-}
-
-function scheduleExams(
-  schedule: ScheduleEntry[],
-  teachers: Teacher[],
-  classes: Class[],
-  lastWeek: number,
-  startId: number
-) {
-  let examId = startId;
-  const preferredExamDays = ['thursday', 'friday', 'wednesday', 'tuesday', 'monday', 'saturday'];
-
-  classes.forEach(cls => {
-    const subjects = cls.subjectRequirements.map(req => req.subject);
-
-    subjects.forEach(subject => {
-      const hasSessions = schedule.some(entry =>
-        entry.className === cls.name &&
-        entry.subject === subject
-      );
-      if (!hasSessions) return;
-
-      const eligibleTeachers = teachers.filter(t => t.subjects.includes(subject));
-      if (eligibleTeachers.length === 0) return;
-
-      let examScheduled = false;
-
-      // Use the assigned teacher for this subject if available
-      const subjectReq = cls.subjectRequirements.find(req => req.subject === subject);
-      let assignedTeacherId = subjectReq?.teacherId;
-      let examTeacher: Teacher | undefined = undefined;
-      if (assignedTeacherId) {
-        examTeacher = teachers.find(t => t.id === assignedTeacherId);
-      }
-
-      for (const day of preferredExamDays) {
-        if (examScheduled) break;
-
-        for (let timeIndex = 0; timeIndex < TIME_SLOTS.length - 2; timeIndex++) {
-          const startTime = TIME_SLOTS[timeIndex];
-          const endTime = TIME_SLOTS[timeIndex + 2];
-
-          const conflict = schedule.some(entry =>
-            entry.className === cls.name &&
-            entry.day === day &&
-            entry.week === lastWeek &&
-            (
-              (entry.startTime <= startTime && entry.endTime > startTime) ||
-              (entry.startTime < endTime && entry.endTime >= endTime) ||
-              (entry.startTime >= startTime && entry.endTime <= endTime)
-            )
-          );
-          if (conflict) continue;
-
-          let availableTeachers: Teacher[] = [];
-          if (examTeacher) {
-            if (
-              isTeacherAvailable(examTeacher, day, startTime, endTime) &&
-              !isTeacherBooked(examTeacher.id, schedule, day, startTime, endTime, lastWeek)
-            ) {
-              availableTeachers = [examTeacher];
-            }
-          } else {
-            availableTeachers = eligibleTeachers.filter(teacher =>
-              isTeacherAvailable(teacher, day, startTime, endTime) &&
-              !isTeacherBooked(teacher.id, schedule, day, startTime, endTime, lastWeek)
-            );
-          }
-
-          if (availableTeachers.length > 0) {
-            const teacherLoads = availableTeachers.map(teacher => ({
-              teacher,
-              load: schedule.filter(entry =>
-                entry.teacherId === teacher.id &&
-                entry.week === lastWeek &&
-                entry.isExam
-              ).length
-            }));
-            teacherLoads.sort((a, b) => a.load - b.load);
-            const selectedTeacher = teacherLoads[0].teacher;
-
-            schedule.push({
-              id: `exam-${examId++}`,
-              day: day as ScheduleEntry["day"],
-              startTime,
-              endTime,
-              teacherId: examTeacher ? examTeacher.id : (selectedTeacher ? selectedTeacher.id : ''), 
-              className: cls.name,
-              subject: `${subject} Exam`,
-              isExam: true,
-              week: lastWeek
-            });
-
-            examScheduled = true;
-            break;
-          }
-        }
-      }
-    });
-  });
 }

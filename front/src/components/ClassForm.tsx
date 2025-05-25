@@ -49,6 +49,7 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [teacherSelections, setTeacherSelections] = useState<Record<string, string>>({}); // subject -> teacherId
   const [mode, setMode] = useState<'add' | 'edit'>(cls ? 'edit' : 'add');
+  const [error, setError] = useState<string | null>(null);
 
   console.log('ClassForm initialized with mode:', mode, 'and cls:', cls);
 
@@ -178,6 +179,7 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     if (!name || requirements.length === 0) return;
 
     // Duplicate class name check (case-insensitive, trimmed)
@@ -186,7 +188,7 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
       (c) => c.name.trim().toLowerCase() === trimmedName.toLowerCase() && c.id !== id
     );
     if (duplicate) {
-      alert('class already existant');
+      setError('A class with this name already exists.');
       return;
     }
 
@@ -241,7 +243,6 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
         <CardHeader>
           <CardTitle>{mode === 'edit' ? t('editClass') : t('addNewClass')}</CardTitle>
         </CardHeader>
-        
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name">{t('className')}</Label>
@@ -252,6 +253,9 @@ export function ClassForm({ cls, onSubmit, onCancel }: ClassFormProps) {
               placeholder={t('enterClassName')}
               className="w-full"
             />
+            {error && (
+              <p className="text-sm text-red-500">{error}</p>
+            )}
           </div>
           
           <div className="space-y-2">

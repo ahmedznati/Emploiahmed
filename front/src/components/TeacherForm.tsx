@@ -11,6 +11,7 @@ import { TIME_SLOTS, DAYS_OF_WEEK, DAY_LABELS, DAY_LABELS_FR } from '@/utils/tim
 import { createEmptyTimeSlots } from '@/utils/availabilityUtils';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useToast } from '@/components/ui/use-toast';
+import useApp from '@/context/useApp';
 
 interface TeacherFormProps {
   teacher?: Teacher;
@@ -22,6 +23,7 @@ const MORNING_SLOT = { start: "08:00", end: "12:00" };
 const AFTERNOON_SLOT = { start: "14:00", end: "18:00" };
 
 export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
+  const { state } = useApp();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [name, setName] = useState(teacher?.name || '');
@@ -34,7 +36,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
   const [currentDay, setCurrentDay] = useState<keyof WeeklyAvailability>('monday');
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
-  const [errors, setErrors] = useState<{ name?: string; subjects?: string }>({});
+  const [error, setError] = useState<string | null>(null);
   const id = teacher?.id || `teacher-${Date.now()}`;
 
   useEffect(() => {
@@ -75,7 +77,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
     if (selectedSubject && !subjects.includes(selectedSubject)) {
       setSubjects([...subjects, selectedSubject]);
       setSelectedSubject('');
-      setErrors(prev => ({ ...prev, subjects: undefined }));
+      setError(null);
     }
   };
 
@@ -93,7 +95,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
           setSubjects([...subjects, addedSubject.subject.name]);
           setAvailableSubjects([...availableSubjects, addedSubject.subject.name]);
           setNewSubject('');
-          setErrors(prev => ({ ...prev, subjects: undefined }));
+          setError(null);
         } else {
           toast({
             title: 'Error',
@@ -116,7 +118,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
     const newSubjects = subjects.filter(s => s !== subject);
     setSubjects(newSubjects);
     if (newSubjects.length === 0) {
-      setErrors(prev => ({ ...prev, subjects: t('atLeastOneSubjectRequired') }));
+      setError(t('atLeastOneSubjectRequired'));
     }
   };
 
@@ -143,19 +145,30 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: { name?: string; subjects?: string } = {};
-    if (!name) newErrors.name = t('nameRequired');
-    if (subjects.length === 0) newErrors.subjects = t('atLeastOneSubjectRequired');
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
+    setError(null);
+    if (!name) {
+      setError(t('nameRequired'));
+      return;
+    }
+    if (subjects.length === 0) {
+      setError(t('atLeastOneSubjectRequired'));
+      return;
+    }
+    // Duplicate teacher name check (case-insensitive, trimmed)
+    const trimmedName = name.trim();
+    const duplicate = state.teachers.some(
+      (t) => t.name.trim().toLowerCase() === trimmedName.toLowerCase() && t.id !== id
+    );
+    if (duplicate) {
+      setError('A teacher with this name already exists.');
       toast({
-        title: 'Error',
-        description: 'Please fill in all required fields',
+        title: t('error'),
+        description: t('teacherAlreadyExists') || 'A teacher with this name already exists.',
         variant: 'destructive',
       });
       return;
     }
-    onSubmit({ id, name, subjects, availability });
+    onSubmit({ id, name: trimmedName, subjects, availability });
   };
 
   return (
@@ -174,7 +187,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
               placeholder={t('enterTeacherName')}
               required
             />
-            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+            {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
           <div className="space-y-2">
             <Label>{t('subjects')}</Label>
@@ -225,7 +238,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
                 <p className="text-sm text-muted-foreground">{t('noSubjectsAdded')}</p>
               )}
             </div>
-            {errors.subjects && <p className="text-sm text-red-500">{errors.subjects}</p>}
+            {error && <p className="text-sm text-red-500">{error}</p>}
           </div>
           <div className="space-y-2">
             <Label>{t('availability')}</Label>
